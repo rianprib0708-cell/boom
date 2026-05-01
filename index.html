@@ -3,42 +3,41 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>3D Hand Gesture Stable HP</title>
+    <title>3D Hand Gesture Pro - Mobile</title>
     <style>
         body { margin: 0; overflow: hidden; background: #000; font-family: sans-serif; }
         #ui { position: absolute; top: 20px; left: 20px; color: white; z-index: 100; pointer-events: none; text-shadow: 2px 2px 4px #000; }
         #video-preview { 
             position: absolute; bottom: 20px; right: 20px; 
-            width: 120px; border-radius: 8px; border: 2px solid #fff; 
-            transform: scaleX(-1); z-index: 10; background: #222;
+            width: 100px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.3); 
+            transform: scaleX(-1); z-index: 10; background: #111;
         }
-        .hint { font-size: 0.8em; color: #ccc; margin-top: 5px; }
+        .hint { font-size: 0.8em; color: #00d4ff; margin-top: 5px; }
     </style>
 </head>
 <body>
 
 <div id="ui">
-    <h2 id="status">Memuat AI...</h2>
-    <p id="current-shape">Pola: Sphere</p>
-    <div class="hint">Kepalkan tangan lalu buka untuk MELEDAK</div>
+    <h2 id="status">Inisialisasi...</h2>
+    <p id="current-shape">Pola: SPHERE</p>
+    <div class="hint">
+        • Kepal & Buka: <b>MELEDAK / GANTI POLA</b><br>
+        • Cubit Jari (Pinch): <b>ZOOM (BESAR/KECIL)</b>
+    </div>
 </div>
 
 <video id="input-video" style="display:none;" playsinline></video>
 <video id="video-preview" autoplay playsinline muted></video>
 
 <script type="importmap">
-    {
-        "imports": {
-            "three": "https://unpkg.com/three@0.160.0/build/three.module.js"
-        }
-    }
+    { "imports": { "three": "https://unpkg.com/three@0.160.0/build/three.module.js" } }
 </script>
 
 <script type="module">
 import * as THREE from 'three';
 import { HandLandmarker, FilesetResolver } from "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.0";
 
-const PARTICLE_COUNT = 4500;
+const PARTICLE_COUNT = 6000;
 let handLandmarker;
 let video = document.getElementById("input-video");
 let preview = document.getElementById("video-preview");
@@ -48,23 +47,29 @@ const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
 const renderer = new THREE.WebGLRenderer({ antialias: true });
 renderer.setSize(window.innerWidth, window.innerHeight);
-renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+renderer.setPixelRatio(window.devicePixelRatio);
 document.body.appendChild(renderer.domElement);
 
 const geometry = new THREE.BufferGeometry();
 const posArray = new Float32Array(PARTICLE_COUNT * 3);
 const colorArray = new Float32Array(PARTICLE_COUNT * 3);
 
-for(let i=0; i<PARTICLE_COUNT*3; i++) {
-    posArray[i] = (Math.random() - 0.5) * 10;
-    colorArray[i] = Math.random();
+// Warna Bintang Warni-warni
+for(let i=0; i<PARTICLE_COUNT; i++) {
+    posArray[i*3] = (Math.random()-0.5)*10;
+    posArray[i*3+1] = (Math.random()-0.5)*10;
+    posArray[i*3+2] = (Math.random()-0.5)*10;
+    
+    colorArray[i*3] = 0.5 + Math.random() * 0.5; // R
+    colorArray[i*3+1] = 0.5 + Math.random() * 0.5; // G
+    colorArray[i*3+2] = 0.8 + Math.random() * 0.2; // B (Dominan Biru/Putih Bintang)
 }
 
 geometry.setAttribute('position', new THREE.BufferAttribute(posArray, 3));
 geometry.setAttribute('color', new THREE.BufferAttribute(colorArray, 3));
 
 const material = new THREE.PointsMaterial({
-    size: 0.05,
+    size: 0.04,
     vertexColors: true,
     transparent: true,
     blending: THREE.AdditiveBlending,
@@ -75,92 +80,82 @@ const points = new THREE.Points(geometry, material);
 scene.add(points);
 camera.position.z = 10;
 
-// --- GENERATE TEMPLATES ---
-const templates = { sphere: [], heart: [], flower: [] };
+// --- TEMPLATES ---
+const templates = { sphere: [], heart: [], flower: [], saturn: [], fireworks: [], cube: [] };
 for (let i = 0; i < PARTICLE_COUNT; i++) {
-    // Sphere
-    const phi = Math.acos(-1 + (2 * i) / PARTICLE_COUNT);
-    const theta = Math.sqrt(PARTICLE_COUNT * Math.PI) * phi;
-    templates.sphere.push(3 * Math.cos(theta) * Math.sin(phi), 3 * Math.sin(theta) * Math.sin(phi), 3 * Math.cos(phi));
+    // 1. Sphere
+    const phi = Math.acos(-1 + (2 * i) / PARTICLE_COUNT), theta = Math.sqrt(PARTICLE_COUNT * Math.PI) * phi;
+    templates.sphere.push(3*Math.cos(theta)*Math.sin(phi), 3*Math.sin(theta)*Math.sin(phi), 3*Math.cos(phi));
     
-    // Heart
-    const t = Math.random() * Math.PI * 2;
-    templates.heart.push(
-        4 * Math.pow(Math.sin(t), 3) * 0.1, 
-        3.25 * (13*Math.cos(t) - 5*Math.cos(2*t) - 2*Math.cos(3*t) - Math.cos(4*t)) * 0.1, 
-        (Math.random()-0.5)*0.5
-    );
+    // 2. Heart
+    const t = Math.random()*Math.PI*2;
+    templates.heart.push(16*Math.pow(Math.sin(t),3)*0.18, (13*Math.cos(t)-5*Math.cos(2*t)-2*Math.cos(3*t)-Math.cos(4*t))*0.18, (Math.random()-0.5)*0.5);
     
-    // Flower
-    const a = (i / PARTICLE_COUNT) * Math.PI * 20;
-    const r = 3.5 * Math.cos(2.5 * a);
-    templates.flower.push(r * Math.cos(a), r * Math.sin(a), (Math.random()-0.5)*0.2);
+    // 3. Flower
+    const fa = (i/PARTICLE_COUNT)*Math.PI*20, fr = 3.5*Math.cos(2.5*fa);
+    templates.flower.push(fr*Math.cos(fa), fr*Math.sin(fa), (Math.random()-0.5)*0.2);
+
+    // 4. Saturn
+    if(i < PARTICLE_COUNT*0.5) {
+        const p=Math.acos(-1+(2*i)/(PARTICLE_COUNT*0.5)), th=Math.sqrt(PARTICLE_COUNT*0.5*Math.PI)*p;
+        templates.saturn.push(1.5*Math.cos(th)*Math.sin(p), 1.5*Math.sin(th)*Math.sin(p), 1.5*Math.cos(p));
+    } else {
+        const sr=3.5+Math.random()*1.5, sa=Math.random()*Math.PI*2;
+        templates.saturn.push(sr*Math.cos(sa), (Math.random()-0.5)*0.2, sr*Math.sin(sa));
+    }
+
+    // 5. Fireworks
+    const fb=Math.random()*Math.PI*2, fc=Math.random()*Math.PI, frad=Math.random()*5;
+    templates.fireworks.push(frad*Math.cos(fb)*Math.sin(fc), frad*Math.sin(fb)*Math.sin(fc), frad*Math.cos(fc));
+
+    // 6. Cube
+    templates.cube.push((Math.random()-0.5)*5, (Math.random()-0.5)*5, (Math.random()-0.5)*5);
 }
 
-// --- STATE MANAGEMENT ---
-let currentTemplate = 'sphere';
-let isFist = false;
-let explosion = 0;
-let smoothPos = new THREE.Vector3(0, 0, 0);
+// --- LOGIC ---
+let currentTemplate = 'sphere', isFist = false, explosion = 0, smoothPos = new THREE.Vector3(0,0,0);
+let currentScale = 1;
 
 async function start() {
-    try {
-        const vision = await FilesetResolver.forVisionTasks("https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.0/wasm");
-        handLandmarker = await HandLandmarker.createFromOptions(vision, {
-            baseOptions: { modelAssetPath: `https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task` },
-            runningMode: "VIDEO", numHands: 1
-        });
-
-        const stream = await navigator.mediaDevices.getUserMedia({ 
-            video: { facingMode: "user", width: 640, height: 480 } 
-        });
-        
-        video.srcObject = stream;
-        preview.srcObject = stream;
-        video.onloadedmetadata = () => {
-            video.play();
-            document.getElementById('status').innerText = "Kamera Aktif";
-            detect();
-        };
-    } catch (err) {
-        document.getElementById('status').innerText = "Gagal Akses Kamera!";
-    }
+    const vision = await FilesetResolver.forVisionTasks("https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.0/wasm");
+    handLandmarker = await HandLandmarker.createFromOptions(vision, {
+        baseOptions: { modelAssetPath: `https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task` },
+        runningMode: "VIDEO", numHands: 1
+    });
+    navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" } }).then(s => {
+        video.srcObject = s; preview.srcObject = s; video.play();
+        document.getElementById('status').innerText = "Kamera Aktif";
+        detect();
+    });
 }
 
 function detect() {
     if (handLandmarker && video.currentTime !== 0) {
-        const result = handLandmarker.detectForVideo(video, performance.now());
-        if (result.landmarks && result.landmarks.length > 0) {
-            const hand = result.landmarks[0];
+        const res = handLandmarker.detectForVideo(video, performance.now());
+        if (res.landmarks && res.landmarks.length > 0) {
+            const h = res.landmarks[0];
             
-            // Pergerakan halus (Smoothing)
-            const targetX = -(hand[9].x - 0.5) * 22;
-            const targetY = -(hand[9].y - 0.5) * 22;
-            smoothPos.x += (targetX - smoothPos.x) * 0.12;
-            smoothPos.y += (targetY - smoothPos.y) * 0.12;
+            // Pergerakan
+            smoothPos.x += (-(h[9].x-0.5)*25 - smoothPos.x)*0.1;
+            smoothPos.y += (-(h[9].y-0.5)*25 - smoothPos.y)*0.1;
             points.position.set(smoothPos.x, smoothPos.y, 0);
 
-            // Deteksi Kepalan Berdasarkan Jarak Jari ke Telapak
-            const d = (p1, p2) => Math.sqrt((p1.x-p2.x)**2 + (p1.y-p2.y)**2);
-            const distPalm = d(hand[8], hand[0]); 
-            
+            // Zoom (Pinch: Telunjuk & Jempol)
+            const dPinch = Math.sqrt((h[4].x-h[8].x)**2 + (h[4].y-h[8].y)**2);
+            currentScale = THREE.MathUtils.lerp(currentScale, THREE.MathUtils.mapLinear(dPinch, 0.05, 0.3, 0.5, 3.5), 0.1);
+            points.scale.set(currentScale, currentScale, currentScale);
+
+            // Deteksi Kepalan (Mengepal vs Membuka)
+            const dFist = Math.sqrt((h[8].x-h[0].x)**2 + (h[8].y-h[0].y)**2);
             const wasFist = isFist;
-            isFist = distPalm < 0.13; // Jari dekat ke telapak = Mengepal
+            isFist = dFist < 0.15;
 
             if (wasFist && !isFist) {
-                // EFEK MELEDAK SAAT TANGAN DIBUKA
-                explosion = 1.6;
-                const shapes = ['sphere', 'heart', 'flower'];
-                currentTemplate = shapes[Math.floor(Math.random()*shapes.length)];
+                explosion = 2.5; // LEDAKAN KERAS
+                const s = Object.keys(templates);
+                currentTemplate = s[Math.floor(Math.random()*s.length)];
                 document.getElementById('current-shape').innerText = `Pola: ${currentTemplate.toUpperCase()}`;
             }
-
-            // Ubah warna berdasarkan posisi tangan
-            const colorAttr = geometry.attributes.color;
-            for (let i = 0; i < PARTICLE_COUNT; i++) {
-                colorAttr.setXYZ(i, hand[8].x, 0.5, 1 - hand[8].x);
-            }
-            colorAttr.needsUpdate = true;
         }
     }
     requestAnimationFrame(detect);
@@ -168,44 +163,32 @@ function detect() {
 
 function animate() {
     requestAnimationFrame(animate);
-    const pos = geometry.attributes.position;
-    const target = templates[currentTemplate];
+    const pos = geometry.attributes.position, target = templates[currentTemplate];
     
     for (let i = 0; i < PARTICLE_COUNT; i++) {
         const i3 = i * 3;
         if (isFist) {
-            // Partikel menyusut ke tengah tangan
-            pos.array[i3] *= 0.82;
-            pos.array[i3+1] *= 0.82;
-            pos.array[i3+2] *= 0.82;
+            pos.array[i3] *= 0.75; pos.array[i3+1] *= 0.75; pos.array[i3+2] *= 0.75; // Tersedot
         } else {
-            // Animasi transisi pola
-            let tx = target[i3];
-            let ty = target[i3+1];
-            let tz = target[i3+2];
-
-            if (explosion > 0.01) {
-                // Tambahan gerakan acak saat meledak
-                pos.array[i3] += (Math.random()-0.5) * explosion * 10;
-                pos.array[i3+1] += (Math.random()-0.5) * explosion * 10;
-                pos.array[i3+2] += (Math.random()-0.5) * explosion * 10;
+            if (explosion > 0.05) {
+                // EFEK MELEDAK ACAK
+                pos.array[i3] += (Math.random()-0.5) * explosion * 15;
+                pos.array[i3+1] += (Math.random()-0.5) * explosion * 15;
+                pos.array[i3+2] += (Math.random()-0.5) * explosion * 15;
             }
-
-            pos.array[i3] += (tx - pos.array[i3]) * 0.09;
-            pos.array[i3+1] += (ty - pos.array[i3+1]) * 0.09;
-            pos.array[i3+2] += (tz - pos.array[i3+2]) * 0.09;
+            // Transisi ke bentuk baru
+            pos.array[i3] += (target[i3] - pos.array[i3]) * 0.08;
+            pos.array[i3+1] += (target[i3+1] - pos.array[i3+1]) * 0.08;
+            pos.array[i3+2] += (target[i3+2] - pos.array[i3+2]) * 0.08;
         }
     }
-    
-    if (explosion > 0) explosion *= 0.88; // Redam ledakan
-    
+    if (explosion > 0) explosion *= 0.85; 
     pos.needsUpdate = true;
     points.rotation.y += 0.005;
     renderer.render(scene, camera);
 }
 
-start();
-animate();
+start(); animate();
 
 window.addEventListener('resize', () => {
     camera.aspect = window.innerWidth / window.innerHeight;
